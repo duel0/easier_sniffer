@@ -27,7 +27,7 @@ On the remote VM:
 .
 ├── capture.sh              # Main script
 ├── config.conf.example     # Example config file
-├── Usage.md                # This documentation
+├── README.md                # This documentation
 └── captures/               # Output folder for .pcap files
 ```
 

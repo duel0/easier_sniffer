@@ -2,6 +2,7 @@
 
 CONFIG_FILE="./config.conf"
 PID_FILE="./capture.pid"
+FIFO_PATH="./live_capture.pcap"
 
 check_ssh_access() {
     if ssh -o BatchMode=yes "$REMOTE_USER@$REMOTE_HOST" 'echo 2>&1' && [[ $? -eq 0 ]]; then
@@ -12,27 +13,7 @@ check_ssh_access() {
 }
 
 setup_ssh_key() {
-    if [[ ! -f "$HOME/.ssh/id_rsa" ]]; then
-        echo "No SSH key found. Do you want to generate one? (y/n)"
-        read -r answer
-        if [[ "$answer" == "y" ]]; then
-            ssh-keygen -t rsa -b 4096 -N "" -f "$HOME/.ssh/id_rsa"
-        else
-            echo "You chose not to generate an SSH key. Password will be required for each connection."
-            USE_SSHPASS=true
-        fi
-    fi
-
-    if ! check_ssh_access; then
-        echo "SSH access is not yet configured. Do you want to copy your public key to the remote machine? (y/n)"
-        read -r copy_answer
-        if [[ "$copy_answer" == "y" ]]; then
-            ssh-copy-id "$REMOTE_USER@$REMOTE_HOST"
-        else
-            echo "You chose not to copy the key. Password will be required for each connection."
-            USE_SSHPASS=true
-        fi
-    fi
+    USE_SSHPASS=true
 }
 
 start_capture() {
@@ -44,6 +25,12 @@ start_capture() {
         exit 1
     fi
 
+    # Create FIFO if it doesn't exist
+    if [[ ! -p "$FIFO_PATH" ]]; then
+        echo "🌀 Creating FIFO at $FIFO_PATH"
+        mkfifo "$FIFO_PATH"
+    fi
+
     setup_ssh_key
 
     echo "🚀 Starting capture on $REMOTE_HOST ($INTERFACE)..."
@@ -53,21 +40,26 @@ start_capture() {
             echo "Enter SSH password for $REMOTE_USER@$REMOTE_HOST:"
             read -rs SSH_PASSWORD
         fi
-        sshpass -p "$SSH_PASSWORD" ssh "$REMOTE_USER@$REMOTE_HOST" "sudo tcpdump -i $INTERFACE -w - -U" > "$LOCAL_PCAP_PATH" &
+        sshpass -p "$SSH_PASSWORD" ssh "$REMOTE_USER@$REMOTE_HOST" \
+            "sudo tcpdump -i $INTERFACE -w - -U" > >(tee "$LOCAL_PCAP_PATH" > "$FIFO_PATH") 2>/dev/null &
     else
-        ssh "$REMOTE_USER@$REMOTE_HOST" "sudo tcpdump -i $INTERFACE -w - -U" > "$LOCAL_PCAP_PATH" &
+        ssh "$REMOTE_USER@$REMOTE_HOST" \
+            "sudo tcpdump -i $INTERFACE -w - -U" > >(tee "$LOCAL_PCAP_PATH" > "$FIFO_PATH") 2>/dev/null &
     fi
 
     PID=$!
     echo "$PID" > "$PID_FILE"
-    echo "✅ Capture started (PID $PID), output file: $LOCAL_PCAP_PATH"
+    echo "✅ Capture started (PID $PID)"
+    echo "📦 Output file: $LOCAL_PCAP_PATH"
+    echo "👁️  Live stream: $FIFO_PATH (use with: tshark -r $FIFO_PATH)"
 }
 
 stop_capture() {
     if [[ -f "$PID_FILE" ]]; then
         PID=$(cat "$PID_FILE")
         echo "🛑 Stopping capture (PID $PID)..."
-        kill "$PID"
+        kill -2 "$PID"  # SIGINT, so tcpdump closes cleanly
+        wait "$PID"
         rm "$PID_FILE"
         echo "✅ Capture stopped."
     else

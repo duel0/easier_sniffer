@@ -1,6 +1,5 @@
 REMOTE_HOST=<IP>
 REMOTE_USER=<username>
 INTERFACE=<e.g. wlan0>
-LOCAL_PCAP_PATH=./captures/traffic.pcap
-# Optional: uncomment this if not using SSH keys
-#SSH_PASSWORD=<your_password_here>
+SSH_PASSWORD=<your_psw_here>
+# LOCAL_PCAP_PATH=./captures/traffic.pcap

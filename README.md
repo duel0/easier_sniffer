@@ -29,8 +29,7 @@ This script allows you to remotely capture network traffic from a virtual machin
 ├── config.conf             # Configuration file
 ├── README.md               # This documentation
 ├── live_capture.pcap       # FIFO pipe for live streaming
-├── capture.pid             # PID file to track running captures
-└── captures/               # Output folder for .pcap files
+└── capture.pid             # PID file to track running captures
 ```
 
 ⸻
@@ -53,9 +52,9 @@ Edit config.conf to match your environment:
 REMOTE_HOST=192.168.1.50            # IP or hostname of the remote VM
 REMOTE_USER=myuser                  # SSH username
 INTERFACE=game                      # Network interface to capture on (e.g., eth0, enp0s3, game)
-LOCAL_PCAP_PATH=./captures/traffic.pcap  # Local file path to save the .pcap
-# Optional: uncomment and set if not using SSH keys
-# SSH_PASSWORD=yourpassword
+SSH_PASSWORD=yourpassword
+# LOCAL_PCAP_PATH=./captures/traffic.pcap  # Local file path to save the .pcap
+
 ```
 
 ⸻
@@ -90,7 +89,7 @@ You have two options for viewing capture data:
 1. View the saved file (after or during capture):
 
 ```bash
-tcpdump -r ./captures/traffic.pcap
+tcpdump -r ./live_capture.pcap
 ```
 
 2. View the live stream in real-time (during capture):
